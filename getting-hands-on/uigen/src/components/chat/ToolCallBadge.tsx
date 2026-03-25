@@ -8,7 +8,7 @@ type ToolInvocation = {
   result?: unknown;
 };
 
-function getLabel(toolName: string, args: Record<string, unknown>): string {
+export function getLabel(toolName: string, args: Record<string, unknown>): string {
   const path = typeof args.path === "string" ? args.path : undefined;
   const filename = path ? path.split("/").filter(Boolean).at(-1) : undefined;
   const command = typeof args.command === "string" ? args.command : undefined;

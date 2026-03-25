@@ -1,76 +1,131 @@
-import { test, expect, afterEach } from "vitest";
+import { test, expect, afterEach, describe } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import { ToolCallBadge } from "../ToolCallBadge";
+import { ToolCallBadge, getLabel } from "../ToolCallBadge";
 
 afterEach(() => {
   cleanup();
 });
 
-function makeInvocation(
-  toolName: string,
-  args: Record<string, unknown>,
-  state: "call" | "result" = "result",
-  result: unknown = "Success"
-) {
-  return { toolCallId: "test-id", toolName, args, state, result: state === "result" ? result : undefined };
-}
+describe("getLabel", () => {
+  // str_replace_editor commands
+  test("returns 'Creating {filename}' for create command", () => {
+    expect(getLabel("str_replace_editor", { command: "create", path: "/src/App.jsx" })).toBe("Creating App.jsx");
+  });
 
-// str_replace_editor labels
-test("str_replace_editor create shows Creating filename", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("str_replace_editor", { command: "create", path: "/src/App.jsx" })} />);
-  expect(screen.getByText("Creating App.jsx")).toBeDefined();
+  test("returns 'Editing {filename}' for str_replace command", () => {
+    expect(getLabel("str_replace_editor", { command: "str_replace", path: "/src/App.jsx" })).toBe("Editing App.jsx");
+  });
+
+  test("returns 'Editing {filename}' for insert command", () => {
+    expect(getLabel("str_replace_editor", { command: "insert", path: "/src/App.jsx" })).toBe("Editing App.jsx");
+  });
+
+  test("returns 'Viewing {filename}' for view command", () => {
+    expect(getLabel("str_replace_editor", { command: "view", path: "/src/index.ts" })).toBe("Viewing index.ts");
+  });
+
+  test("returns 'Undoing edit to {filename}' for undo_edit command", () => {
+    expect(getLabel("str_replace_editor", { command: "undo_edit", path: "/src/App.jsx" })).toBe("Undoing edit to App.jsx");
+  });
+
+  test("returns verb + 'file' when path is missing", () => {
+    expect(getLabel("str_replace_editor", { command: "create" })).toBe("Creating file");
+  });
+
+  test("returns raw tool name for unknown str_replace_editor command", () => {
+    expect(getLabel("str_replace_editor", { command: "unknown_cmd", path: "/a.ts" })).toBe("str_replace_editor");
+  });
+
+  // file_manager commands
+  test("returns 'Renaming {filename}' for rename command", () => {
+    expect(getLabel("file_manager", { command: "rename", path: "/src/old.tsx" })).toBe("Renaming old.tsx");
+  });
+
+  test("returns 'Deleting {filename}' for delete command", () => {
+    expect(getLabel("file_manager", { command: "delete", path: "/src/trash.tsx" })).toBe("Deleting trash.tsx");
+  });
+
+  test("returns 'Renaming file' when path is missing for rename", () => {
+    expect(getLabel("file_manager", { command: "rename" })).toBe("Renaming file");
+  });
+
+  test("returns 'Deleting file' when path is missing for delete", () => {
+    expect(getLabel("file_manager", { command: "delete" })).toBe("Deleting file");
+  });
+
+  test("returns raw tool name for unknown file_manager command", () => {
+    expect(getLabel("file_manager", { command: "unknown_cmd", path: "/a.ts" })).toBe("file_manager");
+  });
+
+  // Edge cases
+  test("returns raw tool name for unknown tool", () => {
+    expect(getLabel("custom_tool", { command: "do_something" })).toBe("custom_tool");
+  });
+
+  test("returns raw tool name when args is empty object", () => {
+    expect(getLabel("str_replace_editor", {})).toBe("str_replace_editor");
+  });
 });
 
-test("str_replace_editor str_replace shows Editing filename", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("str_replace_editor", { command: "str_replace", path: "/src/App.jsx" })} />);
-  expect(screen.getByText("Editing App.jsx")).toBeDefined();
-});
+describe("ToolCallBadge component", () => {
+  test("renders green dot when state is result", () => {
+    const { container } = render(
+      <ToolCallBadge
+        toolInvocation={{
+          toolCallId: "tc-1",
+          toolName: "str_replace_editor",
+          args: { command: "create", path: "/App.jsx" },
+          state: "result",
+          result: "ok",
+        }}
+      />
+    );
+    expect(container.querySelector(".bg-emerald-500")).not.toBeNull();
+    expect(container.querySelector(".animate-spin")).toBeNull();
+  });
 
-test("str_replace_editor insert shows Editing filename", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("str_replace_editor", { command: "insert", path: "/src/App.jsx" })} />);
-  expect(screen.getByText("Editing App.jsx")).toBeDefined();
-});
+  test("renders spinner when state is not result", () => {
+    const { container } = render(
+      <ToolCallBadge
+        toolInvocation={{
+          toolCallId: "tc-1",
+          toolName: "str_replace_editor",
+          args: { command: "create", path: "/App.jsx" },
+          state: "call",
+        }}
+      />
+    );
+    expect(container.querySelector(".animate-spin")).not.toBeNull();
+    expect(container.querySelector(".bg-emerald-500")).toBeNull();
+  });
 
-test("str_replace_editor view shows Viewing filename", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("str_replace_editor", { command: "view", path: "/src/App.jsx" })} />);
-  expect(screen.getByText("Viewing App.jsx")).toBeDefined();
-});
+  test("renders human-readable label", () => {
+    render(
+      <ToolCallBadge
+        toolInvocation={{
+          toolCallId: "tc-1",
+          toolName: "str_replace_editor",
+          args: { command: "str_replace", path: "/src/Button.tsx" },
+          state: "result",
+          result: "ok",
+        }}
+      />
+    );
+    expect(screen.getByText("Editing Button.tsx")).toBeDefined();
+  });
 
-test("str_replace_editor undo_edit shows Undoing edit to filename", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("str_replace_editor", { command: "undo_edit", path: "/src/App.jsx" })} />);
-  expect(screen.getByText("Undoing edit to App.jsx")).toBeDefined();
-});
-
-// file_manager labels
-test("file_manager rename shows Renaming filename", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("file_manager", { command: "rename", path: "/src/App.jsx" })} />);
-  expect(screen.getByText("Renaming App.jsx")).toBeDefined();
-});
-
-test("file_manager delete shows Deleting filename", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("file_manager", { command: "delete", path: "/src/App.jsx" })} />);
-  expect(screen.getByText("Deleting App.jsx")).toBeDefined();
-});
-
-// Fallback
-test("unknown tool shows tool name as fallback", () => {
-  render(<ToolCallBadge toolInvocation={makeInvocation("custom_tool", {})} />);
-  expect(screen.getByText("custom_tool")).toBeDefined();
-});
-
-// States
-test("completed state renders green dot", () => {
-  const { container } = render(
-    <ToolCallBadge toolInvocation={makeInvocation("str_replace_editor", { command: "create", path: "/App.jsx" }, "result", "ok")} />
-  );
-  expect(container.querySelector(".bg-emerald-500")).toBeDefined();
-  expect(container.querySelector(".animate-spin")).toBeNull();
-});
-
-test("in-progress state renders spinner", () => {
-  const { container } = render(
-    <ToolCallBadge toolInvocation={makeInvocation("str_replace_editor", { command: "create", path: "/App.jsx" }, "call")} />
-  );
-  expect(container.querySelector(".animate-spin")).toBeDefined();
-  expect(container.querySelector(".bg-emerald-500")).toBeNull();
+  test("renders raw tool name for unknown tool", () => {
+    render(
+      <ToolCallBadge
+        toolInvocation={{
+          toolCallId: "tc-1",
+          toolName: "some_other_tool",
+          args: {},
+          state: "result",
+          result: "ok",
+        }}
+      />
+    );
+    expect(screen.getByText("some_other_tool")).toBeDefined();
+  });
 });

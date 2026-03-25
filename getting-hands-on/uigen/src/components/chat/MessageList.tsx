@@ -25,7 +25,7 @@ export function EmptyState() {
 
 export function MessageList({ messages, isLoading }: MessageListProps) {
   if (messages.length === 0) {
-    return null;
+    return <EmptyState />;
   }
 
   return (
